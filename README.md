@@ -11,8 +11,6 @@
 
 Email: <dconroybeam@ucsb.edu>
 
-Office: Psych. East 2831
-
 <br> The goal of this workshop is to cover the basics of programming agent-baesd models in R. We will cover the basics of programming in R and practice building simulations of social systems. Students will additionally plan an agent-based model on a topic of their choice.
 
 ------------------------------------------------------------------------
@@ -22,7 +20,7 @@ Office: Psych. East 2831
 **Core Meetings (T, TH):** Dr. Conroy-Beam and students will meet
 weekly in person in Psych. East 3834 on Tuesdays and Thursdays from 2-5p. Most meetings will consist of students and Dr. Conroy-Beam working together to write an agent-based model on a classic topic in R.
 
-**Section Meetings (F):** Graduate students Ashley Coventry and Carlos Sosa Colindres will host short supplemental sections each Friday. These will go further in-depth on an R programming topic relevant to the workshop and help students plan their own agent-based model.
+**Section Meetings (F):** Graduate students Ashley Coventry and Carlos Sosa Colindres will host short supplemental sections each Friday in Psych East 3834. These will go further in-depth on an R programming topic relevant to the workshop and help students plan their own agent-based model.
 
 ------------------------------------------------------------------------
 
