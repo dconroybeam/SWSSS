@@ -32,7 +32,7 @@ weekly in person in Psych. East 3834 on Tuesdays and Thursdays from 2-5p. Most m
 | 2: Thursday, Aug. 24    | Introduction to R                  | [Meeting 2 Materials](https://github.com/dconroybeam/SWSSS/tree/main/intro-to-r)                                    |
 | 3: Tuesday, Aug. 29     | Monty Hall Problem Model           | [Meeting 3 Materials](https://github.com/dconroybeam/SWSSS/tree/main/model-outlines/monty-hall-model.md)            |
 | 4: Thursday, Aug. 31    | Schelling Segregation Model        | [Meeting 4 Materials](https://github.com/dconroybeam/SWSSS/tree/main/model-outlines/schelling-segregation-model.md) |
-| 5: Tuesday, Sept. 5     | Conformity Model                   |
+| 5: Tuesday, Sept. 5     | Conformity Model                   | [Meeting 5 Materials](https://github.com/dconroybeam/SWSSS/tree/main/model-outlines/conformity-model.md)            |
 | 6: Thursday, Sept. 7    | Disease Transmission Model         |
 | 7: Tuesday, Sept. 12    | Assortative Mating Model           |
 | 8: Thursday, Sept. 14   | Life-Dinner Principle Model        |
