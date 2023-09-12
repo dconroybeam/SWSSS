@@ -34,5 +34,5 @@ weekly in person in Psych. East 3834 on Tuesdays and Thursdays from 2-5p. Most m
 | 4: Thursday, Aug. 31    | Schelling Segregation Model        | [Meeting 4 Materials](https://github.com/dconroybeam/SWSSS/tree/main/model-outlines/schelling-segregation-model.md)           |
 | 5: Tuesday, Sept. 5     | Conformity Model                   | [Meeting 5 Materials](https://github.com/dconroybeam/SWSSS/tree/main/model-outlines/conformity-model.md)                      |
 | 6: Thursday, Sept. 7    | Disease Transmission Model         | [Meeting 6 Materials](https://github.com/dconroybeam/SWSSS/tree/main/model-outlines/disease-transmission-model.md)            |
-| 7: Tuesday, Sept. 12    | Assortative Mating Model           |
+| 7: Tuesday, Sept. 12    | Assortative Mating Model           | [Meeting 7 Materials](https://github.com/dconroybeam/SWSSS/tree/main/model-outlines/assortative-mating-model.md)
 | 8: Thursday, Sept. 14   | Life-Dinner Principle Model        |
