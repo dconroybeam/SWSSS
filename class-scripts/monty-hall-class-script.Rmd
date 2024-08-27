@@ -1,0 +1,196 @@
+---
+title: "Monty Hall Problem Model"
+author: "Dan Conroy-Beam"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Model Overview
+
+### Purpose
+
+Compare strategies within the Monty Hall Problem. Agents will take turns playing the guessing game from the Monty Hall problem.
+
+The model will determine and store how the agent would have fared in each iteration had they used a stay or a switch strategy.
+ 
+### Agents
+
+Each iteration of the model will generate a single agent who will play one round of the guessing game from Let’s Make a Deal.
+
+The agent will use, in parallel, both a stay and switch strategy in each round.
+ 
+### Life Cycle
+
+1. Setup
+2. Guess
+3. Reveal Goat
+4. Stay/Switch
+5. Reveal Car
+ 
+#### Setup
+
+At the start of the life cycle, "Monty Hall" will place a car behind one randomly selected door and goats behind the remaining doors.
+ 
+#### Guess
+
+During this stage, the agent will guess which door conceals the car. The agent will pick a random door each round.
+ 
+#### Reveal Goat
+
+After the agent's initial guess, Monty Hall will reveal what is behind one of the doors. The revealed door will always (1) conceal a goat and (2) not be a door the agent has guessed.
+ 
+#### Stay/Switch
+
+At this stage, Monty Hall will ask the agent whether it wants to stay with its original guess or switch to the other, unrevealed door.
+ 
+To save time, the model will separately store the result of both decisions.
+ 
+#### Reveal Car
+
+At this stage, Monty Hall will reveal which door concealed the car. If the agent's decision was correct, the model will store this as a victory for that round. If the agent's decision was incorrect, the model will store this as a loss for that round.
+ 
+### Analysis
+
+The model will compare the proportion of games in which the agent won the car with both strategies
+
+
+
+## Model 
+
+### Packages
+```{r packages}
+
+library(ggplot2)
+
+```
+
+
+
+### Parameters
+```{r parameters}
+
+#Model Loops#
+#Number of iterations of the Let's Make a Deal Game
+modelLoops<-1000
+
+```
+
+
+
+### Life Cycle
+```{r lifeCycle}
+
+#Pregenerate a large, blank dataframe for storing model results
+results<-data.frame(matrix(NA,modelLoops,2))
+
+colnames(results)<-c("stay","switch")
+
+for(loop in 1:modelLoops) {
+  
+  #Setup#
+  
+  #Generate the door numbers
+  number <- 1:3
+  
+  #Create the prize options
+  prizes <- c("car", "goat", "goat")
+  
+  #Randomly scramble the order of the prizes
+  prizes <- sample(prizes, 3)
+  
+  #Create the doors dataframe
+  doors <- data.frame(number, prizes)
+  
+  
+  
+  #Guess#
+  
+  #Make the agent guess a random initial door
+  startGuess <- sample(doors$number, 1)
+  
+  
+  
+  #Reveal Goat#
+  #Monty reveals one door
+  #The door cannot be the one the agent guessed
+  #The door cannot conceal a car
+  
+  #First, identify the doors that conceal goats
+  reveal <- doors$number[doors$prizes == "goat"]
+  
+  #If applicable, remove the door that the agent guessed initially
+  reveal <- reveal[reveal != startGuess]
+  
+  #IF there's more than one door that can be revealed...
+  if (length(reveal) > 1) {
+    #...pick one at random to reveal
+    reveal <- sample(reveal, 1)
+  }
+  
+  
+  
+  #Switch/Stay#
+  
+  #Create a new variable that reflects that agent's guess if they decide to stay
+  stayGuess <- startGuess
+  
+  #Have the agent pick a new door
+  #Not the same as stayGuess
+  #Not the same as reveal
+  switchGuess <- doors$number[!(doors$number %in% c(stayGuess, reveal))]
+  
+  
+  
+  #Reveal#
+  
+  #Determines the agent's prize if they stay with their initial guess
+  stayResult <- doors$prizes[doors$number == stayGuess]
+  
+  #Determines the agent's prize if they switch their initial guess
+  switchResult <- doors$prizes[doors$number == switchGuess]
+ 
+  #Save the results of the current model loop
+  results$stay[loop]<-stayResult
+  results$switch[loop]<-switchResult
+}
+
+```
+
+
+
+### Analysis
+```{r analysis}
+
+#Convert cars to 1s and goats to 0s
+results<-ifelse(results=="car",1,0)
+
+#Create a dataframe to plot results
+plotData<-data.frame("run"=1:modelLoops,
+                     "strategy"=rep(c("Stay","Switch"),
+                                    each=modelLoops),
+                     "outcome"=c(cumsum(results[,1])/1:modelLoops,
+                                 cumsum(results[,2])/1:modelLoops)
+                     )
+
+#Create a graph of the results
+p1<-ggplot(data=plotData,
+           aes(x=run,
+               y=outcome,
+               color=strategy))+
+  labs(x="Model Run",
+       y="Performance (Prop. of Wins)",
+       color="Strategy")+
+  geom_line()+
+  scale_color_manual(values=c("brown","turquoise"))
+  
+p1  
+
+```
+
