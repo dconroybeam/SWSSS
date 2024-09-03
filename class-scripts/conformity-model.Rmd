@@ -1,0 +1,266 @@
+---
+title: "Conformity Model"
+author: "Dan Conroy-Beam"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Model Overview 
+ 
+### Purpose
+
+The purpose of this model is to explore the emergence of fads as a function of varying levels of conformity and anticonformity.
+
+Agents will choose between three options (grow a beard, grow a mustache, or be clean-shaven) based on one of two conformity strategies. Some agents will be "conformists": these agents will adopt facial hair styles in proportion to how popular they are in their social group. Other agents will be "hipsters": these agents will adopt facial hair styles in proportion to how unpopular they are in their social group.
+ 
+### Agents
+
+A population of agents will be generated. Each agent will have a strategy: hipster or conformist. The population size, proportion of hipsters, probability of changing hairstyle, and social group size will be determined by manipulable parameters.
+
+Agents will be assigned to random social groups; social groups will be non-overlapping such that not all agents within a particular agent's social group will mutually know one another.
+ 
+### Life Cycle
+ 
+1. Assess
+2. Switch
+ 
+#### Assess
+
+Each agent will first assess the facial hair of all other agents in their social group. The agent will then determine the proportion of agents who have beards, mustaches, and are clean shaven.
+ 
+#### Switch
+
+After all agents have assessed the population, each agent will switch their facial hair based on their conformity strategy.  
+
+The probability of agents changing their facial hair each month will depend on a manipulable parameter.  
+
+"Conformists" will choose a random facial hair style with probability directly proportional to the proportion of agents in their social group with that facial hair style.  
+
+"Hipsters" will choose a random facial hair style with probability inversely proportional to the proportion of agents in their social group with that facial hair style.  
+
+In this way, conformists will tend toward wearing whatever is most popular whereas hipsters will tend toward wearing whatever is least popular
+ 
+### Analysis
+
+The model will plot the proportion of agents wearing each facial hair type as a function of time.
+
+
+
+## Model
+
+
+
+### Packages
+
+```{r packages}
+
+library(ggplot2)
+
+```
+
+
+
+### Parameters
+
+```{r parameters}
+
+#Population Size#
+#The number of agents to generate
+popSize<-100
+
+
+
+#Proportion of Hipsters#
+#The propotion of agents who are anti-conformists
+propHip<-.01
+
+
+
+#Social Group Size#
+#Number of agents each agent knows
+gSize<-30
+
+
+
+#Probability of Facial Hair Change#
+#Probability that agents change their facial hair each month
+pChange<-.33
+
+
+
+#Months#
+#Number of loops of the life cycle
+months<-1000
+
+```
+
+
+
+### Functions
+
+```{r functions}
+
+#Agent Generation#
+#A function to generate agents
+agentGenerate<-function(n,p){
+  
+  #Generate agent conformity strategies
+  strategy<-c(rep("conformist",(1-p)*n),
+              rep("hipster",p*n))
+  
+  #Generate agent facial hairstyles
+  facialHair<-sample(c("clean","beard","stash"),n,replace=T)
+  
+  #Create the dataframe of agents
+  agents<-data.frame(strategy,facialHair)
+  
+  #Output the agents
+  return(agents)
+  
+}
+
+
+
+#Socialize#
+#A function to assign agents to random, non-overlapping, asymmetric social groups
+socialize<-function(n,g){
+  
+  #Generate a blank matrix for representing the social network
+  network<-matrix(0,n,n)
+  
+  for(a in 1:n){
+    
+    #Assign each agent a random set of other agents whom they "know"
+    #Converts a random g columns of row a (excluding the agent's own) to 1
+    network[a,sample((1:n)[-a],g)]<-1
+    
+  }
+  
+  #Output the agent social network
+  return(network)
+  
+}
+
+
+
+#Assess#
+#A function to assess popularity of facial hair styles
+assess<-function(agents,network){
+  
+  #Generate a blank matrix for storing proportion of agents wearing each facial hair style in each agents' social network
+  propStyle<-matrix(NA,nrow(agents),3)
+  
+  #Loop through agents...
+  for(a in 1:nrow(agents)){
+    
+    #Compute the proportion of known agents who wear each facial hair style
+    propStyle[a,1]<-mean(agents$facialHair[network[a,]==1]=="beard")
+    propStyle[a,2]<-mean(agents$facialHair[network[a,]==1]=="clean")
+    propStyle[a,3]<-mean(agents$facialHair[network[a,]==1]=="stash")
+    
+  }
+  
+  #Output the assessment matrix
+  return(propStyle)
+  
+}
+
+
+
+#Switch#
+#A function to have agents switch facial hair styles
+switch<-function(agents,propStyle,pChange){
+  
+  #Loop through agents...
+  for(a in 1:nrow(agents)){
+    
+    if(rbinom(1,1,pChange)){
+      
+      #Have the agent adopt a facial hair according to their strategy and their social network
+      agents$facialHair[a]<-ifelse(agents$strategy[a]=="conformist",
+             sample(c("beard","clean","stash"),1,
+                    prob=propStyle[a,]),
+             sample(c("beard","clean","stash"),1,
+                    prob=1-propStyle[a,])
+             )
+      
+    }
+    
+  }
+ 
+  return(agents)
+   
+}
+
+```
+
+
+
+### Life Cycle
+
+```{r lifeCycle}
+
+#Generate the agents
+agents<-agentGenerate(popSize,propHip)
+
+#Assign agents a social network
+network<-socialize(popSize,gSize)
+
+
+#Generate a blank dataframe for storing model results
+results<-data.frame("time"=rep(1:months,each=3),
+           "style"=c("beard","clean","stash"),
+           "p"=NA)
+
+#Loop over months...
+for(m in 1:months) {
+  
+  #Assess#
+  
+  #Have the agents assess the popularity of each facial hair style in their network
+  propStyle <- assess(agents, network)
+  
+  
+  
+  #Switch#
+  
+  #Have the agents switch their facial hairs
+  agents <- switch(agents, propStyle, pChange)
+  
+  #Store the proportions of agents wearing each facial hair style at this time
+  results$p[results$time==m & results$style=="beard"]<-mean(agents$facialHair=="beard")
+  results$p[results$time==m & results$style=="clean"]<-mean(agents$facialHair=="clean")
+  results$p[results$time==m & results$style=="stash"]<-mean(agents$facialHair=="stash")
+  
+}
+
+```
+
+
+
+### Analysis
+
+```{r analysis}
+
+p1<-ggplot(data=results,
+           aes(x=time,
+               y=p,
+               fill=style)
+           )+
+  labs(x="Time",
+       y="Popularity (Proportion)",
+       fill="Facial Hair Type")+
+  scale_fill_discrete(labels=c("Beard","Clean-Shaven","Moustache"))+
+  geom_area()
+  
+p1
+
+```
+
