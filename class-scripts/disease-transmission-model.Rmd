@@ -1,0 +1,328 @@
+---
+title: "Infectious Disease"
+author: "Dan Conroy-Beam"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Model Overview
+ 
+### Purpose
+
+A simple model of infectious disease transmission. Agents will move around a 2-dimensional surface and potentially spread an infectious disease to those nearby.
+
+The model will manipulate the number of agents who move vs. stay in place (i.e. social distance) and observe the effect of social distancing on disease spread.
+ 
+### Agents
+
+A population of 200 agents will be generated. Agents will have a random position on a 2D surface.
+
+Each agent will have an infection status (either susceptible, infected, or recovered); all but one agent will start the model as susceptible. One agent will start as infected.
+
+All agents will also have a variable that tracks the number of days they have been infected; this will start at 0 for uninfected agents and 1 for infected agents.
+
+Finally, all agents will possess a variable that reflects whether they are social distancing or not.
+
+The proportion of agents that are social distancing will be set by a social distancing parameter.
+ 
+### Life Cycle
+ 
+1. Move
+2. Infect
+3. Recover
+
+#### Move
+
+Agents will move in a random direction. The distance they move on each day of the life cycle will be set by a movement speed parameter.
+
+Agents that are social distancing will not move
+ 
+#### Infect
+
+Infected agents will potentially transmit the disease to susceptible agents nearby them. 
+
+Only agents within a certain radius of an infected agent are at risk of transmission; 
+
+This radius will be set as a parameter.
+
+The probability of infecting each agent within this radius will also be set by a transmission probability parameter.
+
+Only susceptible agents can be infected; infected and recovered agents cannot be re-infected
+ 
+#### Recovery
+
+The infection duration will increment by 1 each day an agent is infected. 
+
+When the total duration exceeds an infection duration parameter, the agent will change status to recovered
+ 
+### Analysis
+
+The model will save the proportion of the population that is susceptible, infected, and recovered each day
+
+These will be plotted as a function of time to observe both the rate of disease spread and the peak infected proportion as a function of the social distancing parameter.
+
+
+## Model
+
+### Packages
+
+```{r packages}
+
+library(ggplot2)
+
+```
+
+
+
+### Parameters
+
+```{r parameters}
+
+#Population Size#
+#Number of agents to generate
+popSize<-200
+
+
+
+#Social Distancing#
+#Proportion of agents who are social distancing
+socialDist<-.9
+
+
+
+#Movement Speed#
+#How far agents move in a given time step
+moveSpeed<-12
+
+
+
+#Infection Radius#
+#How close two agents must be to transmit disease
+radius<-6
+
+
+#Transmission Probability#
+#The probability an infected agent will pass the disease to a susceptible agent
+contagion<-.5
+
+
+
+#Recovery Time#
+#How long agents take to recover from infection
+recoveryTime<-14
+
+
+
+#Number of Days#
+#Number of "days" to repeat the life cycle
+numDays<-100
+
+```
+
+
+
+### Functions
+
+```{r functions}
+
+#Agent Generation#
+#A function to generate agents
+agentGenerate<-function(n,s){
+  
+  #n = population size
+  #s = socialDist; whether agents are social distancing
+  
+  #Assign each agent a random position on a 2-D surface
+  xPos<-runif(n,0,100)
+  yPos<-runif(n,0,100)
+  
+  #Assign each agent a social distancing status
+  distancing<-sample(c(rep("moving",n-floor((n*s))),
+    rep("standing",floor(n*s))))
+  
+  #Assign each agent a disease status
+  status<-sample(c(rep("susceptible",n-1),"infected"))
+  
+  #Create a variable to track duration of infection
+  daysInfected<-ifelse(status=="infected",1,0)
+  
+  #Put the agents together
+  agents<-data.frame(xPos,yPos,distancing,status,daysInfected)
+  
+  #OUtput the agents
+  return(agents)
+  
+}
+
+
+
+#Move#
+#A function to make agents move
+move<-function(startPos,speed){
+  
+  #Generate a random degree of squared movement on the x-dimension
+  xDiff<-runif(1,0,speed^2)
+  
+  #Allocate any remaining movement speed to the y-dimension
+  yDiff<-speed^2-xDiff
+  
+  #Square root to convert into coordinate dimensions
+  xDiff<-sqrt(xDiff)
+  yDiff<-sqrt(yDiff)
+  
+  #Randomly make each movement direction positive or negative
+  moveDiff<-sample(c(-1,1),2,replace=T)*c(xDiff,yDiff)
+  
+  #Generate new coordinates
+  newPos<-startPos+moveDiff
+  
+  #If necessary, wrap agent position back around to a valid position in the 2-D surface
+  newPos<-newPos %% 100
+  
+  #Output the new coordinate position
+  return(newPos)
+  
+}
+
+
+
+#Infect#
+#Spread the infection between agents
+infect<-function(agents,radius,contagion){
+  
+  #Agents = all agents
+  #Radius = exposure radius
+  #Contagion = infection probability per exposure
+  
+  #Generate a distance matrix
+  distances<-as.matrix(dist(agents[,1:2]))
+  
+  #Determine which agents are currently infected
+  infected<-which(agents$status=="infected")
+  
+  #Loop through infected agents...
+  for(sickPerson in infected){
+    
+    #Determines which agents are within the infection radius of the sick person
+    transmit<-distances[sickPerson,]<=radius
+    
+    #Determine which exposed agents are actually susceptible
+    transmit<-transmit & agents$status=="susceptible"
+    
+    #Determines whether a transmission event will actually happen
+    transmit<-transmit & rbinom(nrow(agents),1,contagion)
+    
+    #Change the infection status of people who experienced a transmission event
+    agents$status[transmit]<-"infected"
+    
+  }
+  
+  return(agents)
+  
+}
+
+```
+
+
+
+### Life Cycle
+
+```{r lifeCycle}
+
+#Generate the agents
+agents<-agentGenerate(popSize,socialDist)
+
+
+
+###Life Cycle###
+
+#Generate a blank vector for storing results
+results<-data.frame("day"=rep(1:numDays,each=3),
+                    "status"=c("susceptible","infected","recovered"),
+                    "p"=NA
+                    )
+
+#Loop through days...
+for (day in 1:numDays) {
+  
+  #Move#
+  
+  #Loop agent-by-agent...
+  for (a in 1:nrow(agents)) {
+    #If the agent is not social distancing...
+    if (agents$distancing[a] == "moving") {
+      #Have them move to a new position
+      agents[a, 1:2] <- move(agents[a, 1:2], moveSpeed)
+      
+    }
+    
+  }
+  
+  
+  
+  #Infect#
+  
+  #Determine which agents get infected today
+  agents <- infect(agents, radius, contagion)
+  
+  
+  
+  #Recovery#
+  
+  #Increments days infected for infected agents
+  agents$daysInfected[agents$status == "infected"] <-
+    agents$daysInfected[agents$status == "infected"] + 1
+  
+  #If agents have been infected for at least recoveryTime days, change their status to recovered
+  agents$status <- ifelse(agents$daysInfected >= recoveryTime,
+                          "recovered",
+                          agents$status)
+  
+  #Record proportion of agents who have each infection status as of this day
+  results$p[results$day==day & 
+              results$status=="susceptible"] <- mean(agents$status=="susceptible")
+  
+    results$p[results$day==day & 
+              results$status=="infected"] <- mean(agents$status=="infected")
+    
+      results$p[results$day==day & 
+              results$status=="recovered"] <- mean(agents$status=="recovered")
+  
+}
+
+
+```
+
+
+
+### Analysis
+
+```{r analysis}
+
+sirPlot<-ggplot(data=results,
+                aes(x=day,
+                    y=p,
+                    color=status)
+                )+
+  labs(x="Time (Days)",
+       y="Proportion of Population",
+       color="Infection Status")+
+  scale_color_manual(values=c("red",
+                              "forestgreen",
+                              "goldenrod"),
+                     labels=c("Infected",
+                              "Recovered",
+                              "Susceptible"))+
+  geom_line(lwd=2)
+
+sirPlot
+
+```
+
