@@ -1,0 +1,248 @@
+---
+title: "Assortative Mating Model"
+author: "Dan Conroy-Beam"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Model Overview
+ 
+### Purpose
+
+Determine whether assortative mating can emerge from individual mating motivations. Agents will select one another as mates based on a physical attractiveness variable.
+
+Each agent will pursue mates probabilistically and in proportion to mates' physical attractiveness. The model will then calculate the extent to which agents mate assortatively for attractiveness.
+
+For comparison, the model will also assess assortative mating for randomly formed pairs.
+
+This model is based loosely on Kalick and Hamilton (1986).
+ 
+### Agents
+
+Each agent will have two randomly assigned features: sex and physical attractiveness. Half of all agents will be male and half will be female.
+
+Agent physical attractiveness values will be drawn from random uniform distributions constrained between 0 and 10.
+
+Agents will also possess a maximum number of dates they will tolerate going on before settling for any mate.
+
+Agent selectivity will gradually decline as they approach their maximum number of dates.
+
+### Life Cycle
+
+1. Date
+2. Offer
+3. Pair
+ 
+#### Date
+
+At the start of the life cycle, a random agent will be paired with a random opposite-sex partner. Dating agents' number of dates will be incremented by one.
+ 
+#### Offer
+
+Next, each dating agent will decide whether to make a long-term commitment offer to their dating partner. The probability of making an offer will be proportional to their date's attractiveness, adjusted by the number of dates the agent has gone on.
+
+If an agent has reached their maximum number of dates, they will make an offer to their next date regardless of attractiveness.
+
+#### Pair
+
+Finally, dating agents will pair if both agents mutually make long-term commitment offers to one another.
+ 
+The life cycle will repeat until all agents are paired
+ 
+### Analysis
+
+The model will compute the correlation between male and female attractiveness within couples for each model run. Correlations across model runs will be plotted with a histogram.
+
+The model will also randomly scramble agent couples and compute the attractiveness correlation for random pairs within model run. 
+
+These random choice correlations will be plotted alongside the attractiveness-driven results for comparison.
+
+
+
+## Model
+
+
+
+### Packages
+```{r packages}
+
+library(ggplot2)
+
+```
+
+
+
+### Parameters
+
+```{r parameters}
+
+#Population Size#
+#Total number of agents to be generated
+popSize<-100
+
+
+
+#Maximum Number of Dates#
+#Maximum number of dates agents will go on before giving up
+maxDates<-50
+
+
+
+#Model Loops#
+#Number of times to repeat the model
+modelLoops<-500
+
+```
+
+
+
+### Functions
+
+```{r functions}
+
+#Agent Generation#
+#A function to generate agents
+agentGenerate<-function(n,sex){
+  
+  #n = number of agents to generate
+  #sex = sex of desired agents
+  
+  #Assign agents a random physical attractiveness
+  physAtt<-runif(n,0,10)
+  
+  #Create a vector to store the number of dates agents have been on
+  numDates<-0
+  
+  #Put the agents together
+  agents<-data.frame(sex,physAtt,numDates)
+  
+  #Output the agents
+  return(agents)
+}
+
+```
+
+
+
+### Life Cycle
+
+```{r lifeCycle}
+
+#Generate a blank dataframe to store model results
+results<-data.frame("loop"=1:modelLoops,
+                    "type"=rep(c("random","nonRandom"),each=modelLoops),
+                    "r"=NA)
+
+#Repeat the model modelLoops times
+for (m in 1:modelLoops) {
+  
+  #Generate the agents
+  females <- agentGenerate(popSize / 2, "female")
+  males <- agentGenerate(popSize / 2, "male")
+  
+  #Create empty vectors to store paired agents
+  pairedFemales <- c()
+  pairedMales <- c()
+  
+  
+  while (length(pairedMales) < nrow(males)) {
+    #Date#
+    
+    #Create a vector of all agents
+    mDate <- 1:nrow(males)
+    fDate <- 1:nrow(females)
+    
+    #Limit this vector to single agents
+    mDate <- mDate[!(mDate %in% pairedMales)]
+    fDate <- fDate[!(fDate %in% pairedFemales)]
+    
+    
+    #If more than one male remains...
+    if (length(mDate) > 1) {
+      #Pick one at random to go on a date
+      mDate <- sample(mDate, 1)
+    }
+    
+    #Same thing for females
+    if (length(fDate) > 1) {
+      fDate <- sample(fDate, 1)
+    }
+    
+    #For the agents going on a date,
+    #increment their number of dates by 1
+    females$numDates[fDate] <- females$numDates[fDate] + 1
+    males$numDates[mDate] <- males$numDates[mDate] + 1
+    
+    
+    
+    #Offer#
+    
+    #Calculate how selective each agent should be based on number of dates completed so far
+    fChoosiness <- (maxDates - females$numDates[fDate]) / maxDates
+    mChoosiness <- (maxDates - males$numDates[mDate]) / maxDates
+    
+    #Prevent choosiness values less than 0
+    fChoosiness <- ifelse(fChoosiness < 0, 0, fChoosiness)
+    mChoosiness <- ifelse(mChoosiness < 0, 0, mChoosiness)
+    
+    #Set the probability of making an offer proportional to (1) date attractiveness and (2) number of dates so far
+    fProb <- ((males$physAtt[mDate] ^ 3) / 1000) ^ fChoosiness
+    mProb <- ((females$physAtt[fDate] ^ 3) / 1000) ^ mChoosiness
+    
+    #Have each agent probabilistically make an offer of commitment
+    fOffer <- rbinom(1, 1, fProb)
+    mOffer <- rbinom(1, 1, mProb)
+    
+    
+    
+    #Pair#
+    
+    #If both agents made mutual offers...
+    if (fOffer & mOffer) {
+      #Add their index to the paired agent vectors
+      pairedFemales <- c(pairedFemales, fDate)
+      pairedMales <- c(pairedMales, mDate)
+    }
+    
+  }
+  
+  #Store the attractiveness correlations in the results dataframe for both non-random and random partner choice
+  results$r[results$loop==m & 
+              results$type=="nonRandom"]<-cor(females$physAtt[pairedFemales], 
+                                              males$physAtt[pairedMales])
+  
+    results$r[results$loop==m & 
+                results$type=="random"]<-cor(sample(females$physAtt),
+                                             sample(males$physAtt))
+    
+}
+
+
+```
+
+
+
+### Analysis
+
+```{r analysis}
+
+p1<-ggplot(data=results,
+           aes(x=r,
+               fill=type))+
+  labs(x="Correlation",y="Density",fill="Choice Type")+
+  geom_density(alpha=.5)+
+  scale_fill_manual(labels=c("Non-Random","Random"),
+                    values=c("dodgerblue3","forestgreen"))+
+  coord_cartesian(xlim=c(-1,1))
+
+p1
+
+```
+
