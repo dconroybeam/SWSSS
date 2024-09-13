@@ -1,0 +1,302 @@
+---
+title: "Life-Dinner Principle Model"
+author: "Dan Conroy-Beam"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Model Overview
+ 
+### Purpose
+
+Observe the "life-dinner principle": in coevolutionary arms races, prey animals have the advantage in that they are fighting for their lives whereas predators are just fighting for dinner.
+
+Agents representing rabbits and foxes will have random encounters with one another. Whether the rabbit escapes--and whether the fox eats--will depend on their relative speed.
+
+Rabbits will reproduce only if they survive; foxes will reproduce only if they get enough to eat.
+ 
+### Agents
+
+Agents will represent either foxes or rabbits. Each agent will also have a speed variable randomly assigned to them from a normal distribution. Rabbit agents will possess a variable that determines whether they have been eaten; foxes possess a variable that tracks the number of rabbits they have eaten.
+ 
+### Life Cycle
+ 
+1. Encounter
+2. Eat/escape
+3. Reproduce/Die
+ 
+#### Encounter
+
+During this life stage, each fox will encounter one rabbit at random. 
+ 
+#### Eat/Escape
+
+The model will next determine whether the fox eats its encountered rabbit or whether the rabbit escapes. The model will roll dice for each agent with the maximum value equal to the agent's speed value.
+ 
+If the rabbit's dice roll is higher, the rabbit escapes; otherwise the fox eats the rabbit. 
+
+The total number of encounters a fox experiences will be set by a parameter.
+ 
+#### Reproduce/Die
+
+After encounters are resolved, the agents will reproduce. Rabbits will reproduce only if they survived. Foxes will reproduce in proportion to the number of rabbits they ate.
+
+Offspring will inherit their speed variable from their parents.
+
+### Analysis
+
+The model will compute the average speed of foxes and rabbits within each model run.
+
+
+
+## Model
+
+### Packages
+```{r packages}
+
+library(ggplot2)
+
+```
+
+
+
+### Parameters
+```{r parameters}
+
+#Model Loops#
+#Number of times to repeat the full model
+modelLoops<-10
+
+
+
+#Fox Population Size#
+#Number of fox agents to generate
+foxPop<-100
+
+
+
+#Number of Fox-Rabbit Encounters#
+#Number of rabbits each fox will encounter
+nEncounters<-3
+
+
+
+#Rabbit Population Size#
+#Number of rabbit agents to generate
+rabbitPop<-foxPop*nEncounters
+
+
+
+#Selection Strength#
+#Ratio of reproductive success between most and lease successful fox
+selStrength<-.15
+
+
+
+#Generations#
+#Number of generations to simulation evolution
+generations<-100
+
+```
+
+
+
+### Functions
+```{r functions}
+
+agentGenerate<-function(n,animal){
+  
+  #Assign each agent an ID number
+  ID<-1:n
+  
+  #Assign a random speed to each agent
+  speed<-rnorm(n,25,5)
+  
+  #If the agent is a rabbit...
+  if(animal=="rabbit"){
+    
+    #Create a variable to track whether it has been eaten
+    dead<-0
+    
+    #Put the rabbits together
+    agents<-data.frame(ID,animal,speed,dead)
+    
+    #If the agent is a fox...
+  } else {
+    
+    #Create a variable to track the number of rabbits each fox has eaten
+    meals<-0
+    
+    #Put the foxes together
+    agents<-data.frame(ID,animal,speed,meals)
+    
+  }
+  
+  #Output the agents
+  return(agents)
+  
+}
+
+
+
+#Chase#
+#A function to simulate the chase between foxes and encountered rabbits
+chase<-function(foxes,eRabbits){
+  
+  #Foxes = all foxes
+  #eRabbits = encountered rabbits
+  
+  #Roll dice for rabbits and foxes based on their top speeds
+  foxRolls<-runif(nrow(foxes),0,foxes$speed)
+  rabbitRolls<-runif(nrow(eRabbits),0,eRabbits$speed)
+  
+  #Determine which foxes catch their rabbits
+  catch<-foxRolls>rabbitRolls
+  
+  #Output the result of each encounter
+  return(catch)
+}
+
+
+
+#Reproduce#
+#A function to reproduce agents
+reproduce<-function(agents,selStrength,n){
+  
+  #If the agent is a rabbit...
+  if(unique(agents$animal)=="rabbit"){
+    
+    #Remove the agents that were eaten
+    agents<-agents[agents$dead==0,]
+    
+    #Generate random offspring from the surviving parent rabbits
+    offspring<-agents[sample(1:nrow(agents),n,replace=T),]
+    
+    #Reset offspring IDs
+    offspring$ID<-1:n
+    
+  } else {
+    
+    #Remove foxes that did not catch any rabbits
+    agents<-agents[agents$meals>0,]
+    
+    #Rescale meals to 0-to-1
+    p<-agents$meals-min(agents$meals)
+    p<-p/max(p)
+    
+    #Add a constant to probability weights to fix strength of selection
+    p<-p+(1/selStrength)
+    
+    #Generate random fox offspring from the surviving parents
+    offspring<-agents[sample(1:nrow(agents),
+                             n,
+                             replace=T,
+                             prob=p),]
+    
+    #Reset offspring IDs
+    offspring$ID<-1:n
+    
+    #Reset offspring meals
+    offspring$meals<-0
+    
+  }
+  
+  #Output the offspring
+  return(offspring)
+  
+}
+
+```
+
+
+
+### Life Cycle
+```{r lifeCycle}
+
+#Generate a blank dataframe to store model
+results<-data.frame(
+  "loop"=rep(1:modelLoops,each=generations*2),
+  "generation"=1:generations,
+  "animal"=rep(c("fox","rabbit"),each=generations),
+  "speed"=NA
+)
+
+
+for (m in 1:modelLoops) {
+  
+  #Generate the agents
+  foxes <- agentGenerate(foxPop, "fox")
+  rabbits <- agentGenerate(rabbitPop, "rabbit")
+  
+  #Loop over generations of simulated evolution...
+  for (g in 1:generations) {
+    
+    #Loop over encounters betwen foxes and rabbits...
+    for (e in 1:nEncounters) {
+      #Encounter#
+      
+      #Determine which rabbits will have an encounter with a fox this day
+      encountered <- sample(rabbits$ID[rabbits$dead == 0], foxPop)
+      
+      #Eat/Escape#
+      
+      #Simulate encounteres between foxes and rabbits
+      caught <- chase(foxes, rabbits[encountered, ])
+      
+      #Update whether each rabbit was eaten
+      rabbits$dead[encountered] <- caught
+      
+      #Update the number of rabbits eatten by each fox
+      foxes$meals <- foxes$meals + caught
+      
+    }
+    
+    #Reproduction#
+    
+    #Overwrite parent agents with offspring agents
+    foxes <- reproduce(foxes, selStrength, foxPop)
+    rabbits <- reproduce(rabbits, selStrength, rabbitPop)
+    
+    #Store the average speed of offspring agents
+    results$speed[results$animal=="fox" &
+                    results$loop==m & 
+                    results$generation==g]<-mean(foxes$speed)
+    
+    results$speed[results$animal=="rabbit" &
+                    results$loop==m &
+                    results$generation==g]<-mean(rabbits$speed)
+    
+  }
+  
+}
+
+
+
+```
+
+
+
+### Analysis
+```{r analysis}
+
+p1<-ggplot(data=results,
+           aes(x=generation,
+               y=speed,
+               color=animal))+
+  labs(x="Generation",y="Animal Speed (Mean)",
+       color="species")+
+  stat_summary(fun=mean,geom="line")+
+  scale_color_manual(labels=c("Fox","Rabbit"),
+                     values=c("orangered","gray60"))
+
+p1
+
+```
+
